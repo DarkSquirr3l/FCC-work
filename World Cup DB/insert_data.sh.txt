@@ -1,0 +1,57 @@
+#! /bin/bash
+
+if [[ $1 == "test" ]]
+then
+  PSQL="psql --username=postgres --dbname=worldcuptest -t --no-align -c"
+else
+  PSQL="psql --username=freecodecamp --dbname=worldcup -t --no-align -c"
+fi
+
+# Do not change code above this line. Use the PSQL variable above to query your database.
+
+# Function to check if a value exists in the "teams" table
+
+echo $($PSQL "TRUNCATE games, teams")
+
+# Function to insert a value 
+insert() {
+    $PSQL "INSERT INTO teams ($1) VALUES ('$2');"
+}
+
+cat games.csv | while IFS="," read YEAR RND WIN LOS WING LOSG
+do
+  if [[ $YEAR != "year" ]]
+  then
+    # Get winner ID
+    WIN_ID=$($PSQL "SELECT team_id FROM teams WHERE name='$WIN'")
+
+    # If no ID, create and assign
+    if [[ -z $WIN_ID ]]
+    then
+      IN_WIN=$(insert "name" "$WIN")
+      if [[ $IN_WIN == "INSERT 0 1" ]] 
+      then
+        WIN_ID=$($PSQL "SELECT team_id FROM teams WHERE name='$WIN'")
+        echo $WIN inserted.
+      fi
+    fi
+
+    # Get loser ID
+    LOS_ID=$($PSQL "SELECT team_id FROM teams WHERE name='$LOS'")
+
+    # If no ID, create and assign
+    if [[ -z $LOS_ID ]]
+    then
+      IN_LOS=$(insert "name" "$LOS")
+      if [[ $IN_LOS == "INSERT 0 1" ]] 
+      then
+        LOS_ID=$($PSQL "SELECT team_id FROM teams WHERE name='$LOS'")
+        echo $LOS inserted.
+      fi
+    fi
+  
+  $PSQL "INSERT INTO games (year, round, winner_id, winner_goals, opponent_id, opponent_goals) VALUES ($YEAR, '$RND', $WIN_ID, $WING, $LOS_ID, $LOSG)"
+  
+  fi
+
+done
