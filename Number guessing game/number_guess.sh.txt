@@ -1,0 +1,69 @@
+#!/bin/bash
+
+#Number guessing game
+PSQL="psql --username=freecodecamp --dbname=number_game -t --no-align -c"
+
+MAIN () {
+  # genertae random number between 1 - 1000
+  NUMBER=$((RANDOM % (1000 + 1)))
+  
+  # user prompts
+  echo "Enter your username:"
+  read USERNAME
+
+  # check username exists
+  UN_RESULT="$($PSQL "SELECT EXISTS (SELECT 1 FROM main WHERE username='$USERNAME')")"
+  if [[ $UN_RESULT == 'f' ]]
+  then
+    # welcome new user
+    INSERT_USER="$($PSQL "INSERT INTO main(username) VALUES('$USERNAME')")"
+    HIGH_SCORE="$($PSQL "SELECT best_game FROM main WHERE username='$USERNAME'")"
+    echo "Welcome, $USERNAME! It looks like this is your first time here."
+  else
+    # get games played & high score
+    GAMES="$($PSQL "SELECT games_played FROM main WHERE username='$USERNAME'")"
+    HIGH_SCORE="$($PSQL "SELECT best_game FROM main WHERE username='$USERNAME'")"
+    # welcome returning user
+    echo "Welcome back, $USERNAME! You have played $GAMES games, and your best game took $HIGH_SCORE guesses."
+  fi
+
+  # begin game
+  echo "Guess the secret number between 1 and 1000:"
+
+  # set attempts
+  ATTEMPTS=0
+
+  while [[ $GUESS != $NUMBER ]]
+  do
+    read GUESS
+    ((ATTEMPTS ++))
+    if [[ ! $GUESS =~ ^[0-9]+$ ]]
+    then
+      echo "That is not an integer, guess again:"
+    elif [ $GUESS -gt $NUMBER ]
+    then
+      echo "It's lower than that, guess again:"
+    elif [ $GUESS -lt $NUMBER ]
+    then
+      echo "It's higher than that, guess again:"
+    else
+      echo "You guessed it in $ATTEMPTS tries. The secret number was $NUMBER. Nice job!"
+    
+      # update player stats
+      GAMES_PLAYED=$((GAMES + 1))
+      if [[ $HIGH_SCORE == 0 || $HIGH_SCORE -gt $ATTEMPTS ]]
+      then
+        NEW_HIGH_SCORE=$ATTEMPTS
+      else
+        NEW_HIGH_SCORE=$HIGH_SCORE
+      fi
+
+      echo player high score now is $NEW_HIGH_SCORE
+
+      UPDATE=$($PSQL "UPDATE main SET games_played=$GAMES_PLAYED, best_game=$NEW_HIGH_SCORE WHERE username='$USERNAME'")
+      break
+    fi
+  done
+}
+
+MAIN
